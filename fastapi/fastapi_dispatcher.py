@@ -4,7 +4,8 @@
 from contextlib import contextmanager
 from io import BytesIO
 
-from odoo.http import Dispatcher, request
+from odoo.http import request
+from odoo.http.dispatcher import Dispatcher
 
 from .context import odoo_env_ctx
 from .error_handlers import convert_exception_to_status_body

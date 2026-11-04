@@ -4,15 +4,19 @@
 from odoo import api, models
 
 
-class IrRule(models.Model):
-    """Add authenticated_partner_id in record rule evaluation context.
+class IrAccess(models.Model):
+    """Add authenticated_partner_id in access domain evaluation context.
 
     This come from the env current odoo environment which is
     populated by dependency method authenticated_partner_env or authenticated_partner
     when a route handler depends one of them and is called by the FastAPI service layer.
+
+    Odoo 20 replaced `ir.rule` by `ir.access`: `_eval_context` is the same hook, and
+    `_get_access_context` names the context values the evaluated domain depends on (the keys
+    that `ir.rule._compute_domain_keys` returned before).
     """
 
-    _inherit = "ir.rule"
+    _inherit = "ir.access"
 
     @api.model
     def _eval_context(self):
@@ -22,6 +26,6 @@ class IrRule(models.Model):
         )
         return ctx
 
-    def _compute_domain_keys(self):
-        """Return the list of context keys to use for caching ``_compute_domain``."""
-        return super()._compute_domain_keys() + ["authenticated_partner_id"]
+    def _get_access_context(self):
+        yield from super()._get_access_context()
+        yield self.env.context.get("authenticated_partner_id", False)

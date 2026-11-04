@@ -114,7 +114,11 @@ class FastApiAppPool:
                 self.__cache_sequences[key] = value
 
     def _check_cache(self, env: Environment) -> None:
-        cache_sequences = env.registry.cache_sequences
+        # Odoo 20 keeps the cache sequences as `{name: (sequence, data)}` in `registry_caches__`
+        cache_sequences = {
+            name: sequence
+            for name, (sequence, _data) in env.registry.registry_caches__.items()
+        }
         for key, value in cache_sequences.items():
             if (
                 value != self.get_cache_sequence(key)

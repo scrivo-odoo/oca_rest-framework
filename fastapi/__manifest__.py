@@ -5,7 +5,7 @@
     "name": "Odoo FastAPI",
     "summary": """
         Odoo FastAPI endpoint""",
-    "version": "19.0.1.1.0",
+    "version": "20.0.1.0.0",
     "license": "LGPL-3",
     "author": "ACSONE SA/NV,Odoo Community Association (OCA)",
     "maintainers": ["lmignon"],
@@ -13,22 +13,22 @@
     "depends": ["endpoint_route_handler"],
     "data": [
         "security/res_groups.xml",
-        "security/fastapi_endpoint.xml",
-        "security/ir_rule+acl.xml",
         "views/fastapi_menu.xml",
         "views/fastapi_endpoint.xml",
         "views/fastapi_endpoint_demo.xml",
+        'security/ir.access.csv',
     ],
     "demo": ["demo/fastapi_endpoint_demo.xml"],
     "external_dependencies": {
         "python": [
-            "fastapi>=0.110.0",
+            "fastapi",
             "python-multipart",
             "ujson",
             "a2wsgi>=1.10.6",
             "parse-accept-language",
+            "fastapi-openapi-overrides",
         ]
     },
     "development_status": "Beta",
-    "installable": False,
+    "installable": True,
 }

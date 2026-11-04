@@ -7,10 +7,11 @@ from functools import partial
 from itertools import chain
 from typing import Any
 
+from fastapi_openapi_overrides import document_dependency_overrides
 from starlette.middleware import Middleware
 from starlette.routing import Mount
 
-from odoo import api, exceptions, fields, models, tools
+from odoo import api, exceptions, fields, models
 from odoo.tools import convert
 
 from fastapi import APIRouter, Depends, FastAPI
@@ -66,6 +67,7 @@ class FastapiEndpoint(models.Model):
         default=True,
     )
     route_group = fields.Char(help="Use this to classify routes together", size=32)
+    expose_doc_urls = fields.Boolean("Expose FastAPI docs", default=True)
 
     @api.depends("root_path")
     def _compute_root_path(self):
@@ -145,13 +147,13 @@ class FastapiEndpoint(models.Model):
         if refresh_fastapi_app:
             self._reset_app()
         if "user_id" in vals:
-            self.env.registry.clear_cache()
+            self.env.transaction.invalidate_ormcache()
         return False
 
     @api.model
     def _fastapi_app_fields(self) -> list[str]:
         """The list of fields requiring to refresh the fastapi app if modified"""
-        return []
+        return ["expose_doc_urls"]
 
     def _make_routing_rule(self, options=None):
         """Generator of rule"""
@@ -205,7 +207,7 @@ class FastapiEndpoint(models.Model):
         invalidate their cache as well. This is required to ensure that any change
         requiring a reset of the app is propagated to all the running instances.
         """
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
 
     @api.model
     def _normalize_url_path(self, path) -> str:
@@ -254,12 +256,12 @@ class FastapiEndpoint(models.Model):
         return None
 
     @api.model
-    @tools.ormcache()
+    @api.ormcache()
     def _get_id_by_root_path_map(self):
         return {r.root_path: r.id for r in self.search([])}
 
     @api.model
-    @tools.ormcache("path")
+    @api.ormcache("path")
     def _get_id_for_path(self, path):
         id_by_path = self._get_id_by_root_path_map()
         root_path = self._find_first_matching_url_path(id_by_path.keys(), path)
@@ -296,7 +298,7 @@ class FastapiEndpoint(models.Model):
                 self._clear_fastapi_exception_handlers(route.app)
 
     @api.model
-    @tools.ormcache("path")
+    @api.ormcache("path")
     def get_uid(self, path):
         record = self._get_endpoint(path)
         if not record:
@@ -308,6 +310,7 @@ class FastapiEndpoint(models.Model):
         for router in self._get_fastapi_routers():
             app.include_router(router=router)
         app.dependency_overrides.update(self._get_app_dependencies_overrides())
+        document_dependency_overrides(app)
         return app
 
     def _get_app_dependencies_overrides(self) -> dict[Callable, Callable]:
@@ -321,12 +324,15 @@ class FastapiEndpoint(models.Model):
 
     def _prepare_fastapi_app_params(self) -> dict[str, Any]:
         """Return the params to pass to the Fast API app constructor"""
-        return {
+        to_return = {
             "title": self.name,
             "description": self.description,
             "middleware": self._get_fastapi_app_middlewares(),
             "dependencies": self._get_fastapi_app_dependencies(),
         }
+        if not self.expose_doc_urls:
+            to_return |= {"docs_url": None, "redoc_url": None, "openapi_url": None}
+        return to_return
 
     def _get_fastapi_routers(self) -> list[APIRouter]:
         """Return the api routers to use for the instance.
